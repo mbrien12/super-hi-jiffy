@@ -1,15 +1,22 @@
 import React, { Component } from "react";
-import Gif from "./Gif"
+import Gif from "./Gif";
 import loader from "./images/loader.svg";
+import clearButton from "./images/close-icon.svg";
 
 const randomChoice = arr => {
   const randIndex = Math.floor(Math.random() * arr.length);
   return arr[randIndex];
 };
 
-const Header = () => (
+const Header = ({ clearSearch, hasResults }) => (
   <div className="header grid">
-    <h1 className="title">Jiffy</h1>
+    {hasResults ? (
+      <button onClick={clearSearch}>
+        <img src={clearButton} alt='clear icon' />
+      </button>
+    ) : (
+      <h1 className="title">Jiffy</h1>
+    )}
   </div>
 );
 
@@ -27,14 +34,17 @@ class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      loading: false,
       searchTerm: "",
       hintText: "",
-      gif: null,
       gifs: []
     };
   }
 
   searchGiphy = async searchTerm => {
+    this.setState({
+      loading: true
+    });
     try {
       const response = await fetch(
         `https://api.giphy.com/v1/gifs/search?api_key=3n9MYXQNqASCZodNQ6fyqAtVgFLWop7I&q=${searchTerm}&limit=100&offset=0&rating=G&lang=en`
@@ -42,12 +52,25 @@ class App extends Component {
       const { data } = await response.json();
       const randomGif = randomChoice(data);
 
+      // catch error in case of no results
+
+      if (!data.length) {
+        throw `Nothing found for ${searchTerm}`;
+      }
+
       this.setState((prevState, props) => ({
         ...prevState,
-        gif: randomGif,
-        gifs: [...prevState.gifs, randomGif]
+        gifs: [...prevState.gifs, randomGif],
+        loading: false,
+        hintText: `Hit enter to see more ${searchTerm}s`
       }));
-    } catch (error) {}
+    } catch (error) {
+      this.setState((prevState, props) => ({
+        ...prevState,
+        hintText: error,
+        loading: false
+      }));
+    }
   };
 
   handleChange = event => {
@@ -66,12 +89,24 @@ class App extends Component {
     }
   };
 
+  clearSearch = () => {
+    this.setState((prevState, props) => ({
+      ...prevState,
+      searchTerm: "",
+      hintText: "",
+      gifs: []
+    }));
+    this.textInput.focus();
+  };
+
   render() {
     // same as searchTerm = this.state.searchTerm
     const { searchTerm, gifs } = this.state;
+    const hasResults = gifs.length;
     return (
       <div className="page">
-        <Header />
+        <Header clearSearch={this.clearSearch} hasResults={hasResults} />
+
         <div className="search grid">
           {gifs.map(gif => (
             <Gif {...gif} />
@@ -82,6 +117,9 @@ class App extends Component {
             onChange={this.handleChange}
             onKeyPress={this.handleKeyPress}
             value={searchTerm}
+            ref={input => {
+              this.textInput = input;
+            }}
           />
         </div>
         {/*Pass user hint everyhing in state using a spread */}
